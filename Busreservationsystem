@@ -1,0 +1,214 @@
+package busreservation;
+
+import java.util.*;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.io.*;
+
+class Booking {
+    private String passengerName;
+    private int busNo;
+    private Date date;
+
+    public Booking(String passengerName, int busNo, Date date) {
+        this.passengerName = passengerName;
+        this.busNo = busNo;
+        this.date = date;
+    }
+
+    public String getPassengerName() {
+        return passengerName;
+    }
+
+    public int getBusNo() {
+        return busNo;
+    }
+
+    public Date getDate() {
+        return date;
+    }
+
+    public String toString() {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        return passengerName + "," + busNo + "," + dateFormat.format(date);
+    }
+}
+
+class Bus {
+    private int busNo;
+    private boolean ac;
+    private int capacity;
+
+    public Bus(int busNo, boolean ac, int capacity) {
+        this.busNo = busNo;
+        this.ac = ac;
+        this.capacity = capacity;
+    }
+
+    public int getBusNo() {
+        return busNo;
+    }
+
+    public boolean isAc() {
+        return ac;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public void displayBusInfo() {
+        System.out.println("Bus No: " + busNo + " | AC: " + (ac ? "Yes" : "No") + " | Capacity: " + capacity);
+    }
+}
+
+public class BusReservationSystem {
+
+    private static final String BOOKING_FILE = "bookings.txt";
+
+    public static void main(String[] args) {
+        List<Bus> buses = new ArrayList<>();
+        List<Booking> bookings = loadBookingsFromFile();
+
+        // Sample Buses
+        buses.add(new Bus(1, true, 2));
+        buses.add(new Bus(2, false, 50));
+        buses.add(new Bus(3, true, 48));
+
+        Scanner scanner = new Scanner(System.in);
+        int userChoice;
+
+        // Display available buses
+        System.out.println("Welcome to the Bus Reservation System.");
+        System.out.println("Below is the list of available buses:");
+        for (Bus bus : buses) {
+            bus.displayBusInfo();
+        }
+
+        do {
+            System.out.println("\nPlease choose an option:");
+            System.out.println("1. Book a ticket");
+            System.out.println("2. Cancel a booking");
+            System.out.println("3. Exit");
+            System.out.print("Your choice: ");
+            userChoice = scanner.nextInt();
+
+            switch (userChoice) {
+                case 1:
+                    makeBooking(scanner, bookings, buses);
+                    break;
+
+                case 2:
+                    cancelBooking(scanner, bookings);
+                    break;
+
+                case 3:
+                    System.out.println("Thank you for using the Bus Reservation System. Goodbye!");
+                    saveBookingsToFile(bookings);
+                    break;
+
+                default:
+                    System.out.println("Invalid choice. Please select a valid option.");
+            }
+        } while (userChoice != 3);
+    }
+
+    private static void makeBooking(Scanner scanner, List<Booking> bookings, List<Bus> buses) {
+        scanner.nextLine(); // consume the leftover newline
+
+        System.out.print("Please enter the passenger's name: ");
+        String passengerName = scanner.nextLine();
+
+        System.out.print("Please enter the bus number you want to book: ");
+        int busNo = scanner.nextInt();
+
+        System.out.print("Please enter the travel date (dd-MM-yyyy): ");
+        String dateInput = scanner.next();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+        Date date = null;
+
+        try {
+            date = dateFormat.parse(dateInput);
+        } catch (ParseException e) {
+            System.out.println("Invalid date format. Please use dd-MM-yyyy.");
+            return;
+        }
+
+        Booking newBooking = new Booking(passengerName, busNo, date);
+        if (isAvailable(newBooking, bookings, buses)) {
+            bookings.add(newBooking);
+            System.out.println("Your booking has been successfully confirmed.");
+        } else {
+            System.out.println("Sorry, the bus is fully booked for the selected date. Please try another date or bus.");
+        }
+    }
+
+    private static void cancelBooking(Scanner scanner, List<Booking> bookings) {
+        scanner.nextLine(); // consume the leftover newline
+
+        System.out.print("Please enter the passenger's name to cancel the booking: ");
+        String passengerName = scanner.nextLine();
+        
+        boolean found = false;
+        for (Booking booking : bookings) {
+            if (booking.getPassengerName().equalsIgnoreCase(passengerName)) {
+                bookings.remove(booking);
+                System.out.println("Booking for " + passengerName + " has been successfully canceled.");
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            System.out.println("No booking found for " + passengerName);
+        }
+    }
+
+    private static boolean isAvailable(Booking newBooking, List<Booking> bookings, List<Bus> buses) {
+        int capacity = 0;
+        for (Bus bus : buses) {
+            if (bus.getBusNo() == newBooking.getBusNo()) {
+                capacity = bus.getCapacity();
+                break;
+            }
+        }
+
+        int bookedSeats = 0;
+        for (Booking booking : bookings) {
+            if (booking.getBusNo() == newBooking.getBusNo() && booking.getDate().equals(newBooking.getDate())) {
+                bookedSeats++;
+            }
+        }
+
+        return bookedSeats < capacity;
+    }
+
+    private static List<Booking> loadBookingsFromFile() {
+        List<Booking> bookings = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(BOOKING_FILE))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] parts = line.split(",");
+                if (parts.length == 3) {
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+                    Date date = dateFormat.parse(parts[2]);
+                    bookings.add(new Booking(parts[0], Integer.parseInt(parts[1]), date));
+                }
+            }
+        } catch (IOException | ParseException e) {
+            System.out.println("Error loading bookings: " + e.getMessage());
+        }
+        return bookings;
+    }
+
+    private static void saveBookingsToFile(List<Booking> bookings) {
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(BOOKING_FILE))) {
+            for (Booking booking : bookings) {
+                bw.write(booking.toString());
+                bw.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("Error saving bookings: " + e.getMessage());
+        }
+    }
+}
